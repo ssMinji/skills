@@ -1,5 +1,6 @@
 {
   "name": "ssminji",
+  "description": "AWS SA 워크플로우 스킬 모음 — 테크 블로그 작성 등",
   "owner": {
     "name": "Minji Song"
   },
