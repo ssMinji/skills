@@ -1,0 +1,13 @@
+{
+  "name": "ssminji",
+  "owner": {
+    "name": "Minji Song"
+  },
+  "plugins": [
+    {
+      "name": "blog-writing",
+      "source": "./plugins/blog-writing",
+      "description": "AWS 테크 블로그 원고를 처음부터 작성하는 워크플로우 (톤 분석 → 섹션별 작성 → 이중 검증 → 공동 저자 협업)"
+    }
+  ]
+}
