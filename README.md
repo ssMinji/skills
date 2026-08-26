@@ -20,8 +20,10 @@ Claude Code에서:
 설치 후 "블로그 작성", "블로그 초안" 같은 요청에 자동으로 활성화되며, 직접 호출하려면:
 
 ```
-/blog-writing:blog-writing
+/blog-writing
 ```
+
+같은 이름의 다른 스킬이 있어 충돌하는 경우에만 전체 형태 `/blog-writing:blog-writing`을 사용하세요.
 
 ## 업데이트
 
