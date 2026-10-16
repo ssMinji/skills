@@ -9,7 +9,7 @@
      (인증: ~/.midway/cookie, 사전에 mwinit -o 필요. nonce 불필요)
   2. 응답의 source_url 을 <작업폴더>/images/upload_map.json 에 기록 (이미 기록된 파일은 재업로드하지 않음)
   3. --html 로 지정한 HTML 안의 src="images/<파일>" 또는 src="<파일>" 을 CDN URL로 치환해
-     <같은이름>_uploaded.md 로 저장 (원본은 덮어쓰지 않음)
+     같은 파일에 바로 쓴다 (중간 파일 없음. wordpress.md 하나가 최종 붙여넣기본)
 
 채널 path: tech (aws.amazon.com/ko/blogs/tech, blog_id 65), korea (blog_id 12) 등.
 """
@@ -85,10 +85,9 @@ def main():
         pat = re.compile(r'src="(?:\./)?(?:images/)?' + re.escape(name) + '"')
         t, k = pat.subn(f'src="{r["url"]}"', t)
         n += k
-    out = html.with_name(html.stem + "_uploaded" + html.suffix)
-    out.write_text(t, encoding="utf-8")
+    html.write_text(t, encoding="utf-8")
     left = re.findall(r'src="(?!https?://)[^"]+"', t)
-    print(f"치환 {n}건 -> {out.name}" + (f" / 미치환 src {len(left)}건: {left[:5]}" if left else " / 미치환 없음"))
+    print(f"치환 {n}건 -> {html.name}" + (f" / 미치환 src {len(left)}건: {left[:5]}" if left else " / 미치환 없음"))
 
 if __name__ == "__main__":
     main()

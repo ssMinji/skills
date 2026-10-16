@@ -11,8 +11,7 @@ description: AWS 테크 블로그 원고(docx/md)를 WordPress HTML로 변환하
 
 0. **게이트 확인** — 작업 폴더에 `gate-report.md`가 있는지 확인. 없으면 `gate.md`의 6개 기준으로 먼저 채점해 리포트를 만든다 (중복과 군더더기는 이 스킬 폴더의 `scripts/redundancy_metrics.py` 실행). 리포트가 있으면 미달 항목과 "의도적으로 유지" 표시만 확인하고, 통과한 항목(오타·정합성·문체)은 다시 보지 않는다. 리뷰어의 몫은 기술적 정확성과 고객 관점이다
 1. **원고 추출** — docx면 python-docx로 구조 추출 (pandoc 의존 없음, `pip install python-docx`)
-2. **구조 변환** — 아래 WordPress 구조 체크리스트에 따라 HTML 생성
-2-1. **이미지 업로드** — `scripts/wp_upload_media.py <작업폴더> --channel tech` 로 `images/`를 WordPress 미디어 라이브러리에 올리고 HTML의 이미지 경로를 CDN URL로 치환한 `wordpress_uploaded.md` 생성 (아래 "이미지 업로드 자동화" 참고). 사용자가 수동 업로드를 원하면 생략
+2. **구조 변환 + 이미지 업로드** — 아래 WordPress 구조 체크리스트에 따라 HTML을 `wordpress.md`로 생성한 뒤, 같은 단계에서 `scripts/wp_upload_media.py <작업폴더> --channel tech` 로 `images/`를 WordPress 미디어 라이브러리에 올리고 `wordpress.md`의 이미지 경로를 CDN URL로 바로 치환한다 (아래 "이미지 업로드 자동화" 참고). 중간 파일을 두지 않고 `wordpress.md` 하나가 최종 붙여넣기본이다. 사용자가 수동 업로드를 원할 때만 생략
 3. **내용 리뷰** — 유사 주제 테크 블로그 검색·비교, 저자 피드백 작성
 4. **산출물** — 아래 위치 규칙에 따라 저장 + 리뷰 내용을 코멘트 형식으로 정리 (아래 형식 참고)
 5. **게시 후** — 사용자가 publish 완료를 알리면 Slack publish 문구 작성 (아래 워크플로우 참고)
@@ -102,7 +101,7 @@ AWS 블로그 WordPress는 REST API가 열려 있고 Midway 쿠키만으로 쓰�
 - 인증: `mwinit -o` 후 `~/.midway/cookie`. 401이면 사용자에게 mwinit 실행을 요청
 - 실행: `python3 -I scripts/wp_upload_media.py <작업폴더> --channel tech [--html wordpress.md] [--dry-run]`
   - `images/upload_map.json`에 파일별 id, URL, 크기 기록. 재실행 시 기록된 파일은 건너뜀
-  - 원본 HTML은 두고 `<이름>_uploaded.md`를 새로 만든다. 미치환 src가 남으면 출력에 표시
+  - 치환 결과는 `--html` 파일에 바로 쓴다 (기본 `wordpress.md`). 미치환 src가 남으면 출력에 표시
 - 프로덕션 쓰기이므로 실행 전 `--dry-run`으로 대상 목록을 사용자에게 보여주고 확인받는다. 저자 사진 등 본문에 안 쓰는 파일은 `images/` 밖으로 빼 둔다
 - 잘못 올린 파일 삭제: `DELETE .../wp/v2/media/<id>?force=true`
 
