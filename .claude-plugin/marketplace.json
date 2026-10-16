@@ -1,6 +1,6 @@
 {
   "name": "ssminji",
-  "description": "AWS SA 워크플로우 스킬 모음 — 테크 블로그 작성 등",
+  "description": "AWS SA 워크플로우 스킬 모음 — 테크 블로그 작성과 리뷰 등",
   "owner": {
     "name": "Minji Song"
   },
@@ -9,6 +9,11 @@
       "name": "blog-writing",
       "source": "./plugins/blog-writing",
       "description": "AWS 테크 블로그 원고를 처음부터 작성하는 워크플로우 (톤 분석 → 섹션별 작성 → 이중 검증 → 공동 저자 협업)"
+    },
+    {
+      "name": "blog-review",
+      "source": "./plugins/blog-review",
+      "description": "AWS 테크 블로그 원고를 WordPress HTML로 변환하고 품질 리뷰 (셀프 게이트 채점 → 구조 변환 → 내용 리뷰 → Slack 공지 문구)"
     }
   ]
 }

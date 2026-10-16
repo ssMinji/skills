@@ -1,0 +1,7 @@
+{
+  "name": "blog-review",
+  "description": "AWS 테크 블로그 원고(docx/md)를 WordPress HTML로 변환하고 셀프 게이트 채점과 구조·내용 품질 리뷰, 게시 후 Slack 공지 문구 작성까지 수행하는 워크플로우",
+  "author": {
+    "name": "Minji Song"
+  }
+}
