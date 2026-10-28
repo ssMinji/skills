@@ -11,9 +11,8 @@ description: AWS 테크 블로그 원고(docx/md)를 WordPress HTML로 변환하
 
 0. **게이트 확인** — 작업 폴더에 `gate-report.md`가 있는지 확인. 없으면 `gate.md`의 6개 기준으로 먼저 채점해 리포트를 만든다 (중복과 군더더기는 이 스킬 폴더의 `scripts/redundancy_metrics.py` 실행). 리포트가 있으면 미달 항목과 "의도적으로 유지" 표시만 확인하고, 통과한 항목(오타·정합성·문체)은 다시 보지 않는다. 리뷰어의 몫은 기술적 정확성과 고객 관점이다
 1. **원고 추출** — docx면 python-docx로 구조 추출 (pandoc 의존 없음, `pip install python-docx`)
-2. **구조 변환 + 이미지 업로드** — 아래 WordPress 구조 체크리스트에 따라 HTML을 `wordpress.md`로 생성한 뒤, 같은 단계에서 `scripts/wp_upload_media.py <작업폴더> --channel tech` 로 `images/`를 WordPress 미디어 라이브러리에 올리고 `wordpress.md`의 이미지 경로를 CDN URL로 바로 치환한다 (아래 "이미지 업로드 자동화" 참고). 중간 파일을 두지 않고 `wordpress.md` 하나가 최종 붙여넣기본이다. 사용자가 수동 업로드를 원할 때만 생략
-2-1. **특성 이미지** — 팀 헤드라인 템플릿(pptx)에 슬라이드를 추가해 PNG로 내보내고 같은 채널에 올린다 (아래 "특성 이미지 만들기" 참고)
-2-2. **임시저장 글** — 제목, slug, 저자, 특성 이미지, 카테고리를 채워 WP 임시저장(draft) 글을 만들고 미리보기를 확인한 뒤 링크를 준다 (아래 "WordPress 임시저장 글 만들기" 참고)
+2. **구조 변환** — 아래 WordPress 구조 체크리스트에 따라 HTML을 `wordpress.md`로 생성한다. 이미지는 블로그 CMS의 미디어 라이브러리에 올린 뒤 `wordpress.md`의 이미지 경로를 업로드된 원본 URL로 바꾼다. 중간 파일을 두지 않고 `wordpress.md` 하나가 최종 붙여넣기본이다
+2-1. **특성 이미지** — 팀 헤드라인 템플릿(pptx)에 슬라이드를 추가해 PNG로 내보낸다 (아래 "특성 이미지 만들기" 참고)
 3. **내용 리뷰** — 유사 주제 테크 블로그 검색·비교, 저자 피드백 작성
 4. **산출물** — 아래 위치 규칙에 따라 저장 + 리뷰 내용을 코멘트 형식으로 정리 (아래 형식 참고)
 5. **게시 후** — 사용자가 publish 완료를 알리면 Slack publish 문구 작성 (아래 워크플로우 참고)
@@ -101,39 +100,13 @@ d = docx.Document(path)
 - 링크는 문장 안에 인라인으로 (docx 추출 시 위치 어긋남 주의)
 - 리스트는 `<ul><li>`
 
-## 이미지 업로드 자동화
+## WordPress 편집 시 주의
 
-AWS 블로그 WordPress는 REST API가 열려 있고 Midway 쿠키만으로 쓰기까지 된다 (nonce 불필요, 2026-10-16 /tech/ 채널에서 업로드 확인).
-
-- 엔드포인트: `https://aws-blogs-prod.amazon.com/<채널>/wp-json/wp/v2/media` (POST, `Content-Type: image/png`, `Content-Disposition: attachment; filename="..."`)
-- 채널 path: 한국 기술 블로그 `tech` (aws.amazon.com/ko/blogs/tech, blog_id 65), 한국 블로그 `korea` (blog_id 12). CDN URL의 해시는 blog_id의 SHA1이라 채널별 고정 (tech = `2a459380…`)
-- 인증: `mwinit -o` 후 `~/.midway/cookie`. 401이면 사용자에게 mwinit 실행을 요청
-- 실행: `python3 -I scripts/wp_upload_media.py <작업폴더> --channel tech [--html wordpress.md] [--dry-run]`
-  - `images/upload_map.json`에 파일별 id, URL, 크기 기록. 재실행 시 기록된 파일은 건너뜀
-  - 치환 결과는 `--html` 파일에 바로 쓴다 (기본 `wordpress.md`). 미치환 src가 남으면 출력에 표시
-- 프로덕션 쓰기이므로 실행 전 `--dry-run`으로 대상 목록을 사용자에게 보여주고 확인받는다. 저자 사진 등 본문에 안 쓰는 파일은 `images/` 밖으로 빼 둔다
-- 잘못 올린 파일 삭제: `DELETE .../wp/v2/media/<id>?force=true`
-- 같은 달에 같은 파일명으로 올리면 WP가 `-1`을 붙인다 (`01_architecture-1.png`). 동작에는 문제없지만 파일명 앞에 글 식별자를 붙이면 헷갈리지 않는다
-
-## WordPress 임시저장 글 만들기
-
-이미지와 특성 이미지를 올린 뒤 같은 REST API로 임시저장(draft) 글까지 만든다. 사용자는 미리보기를 확인만 하면 된다. **`status`는 항상 `draft`** — 게시(publish)나 검토 대기(pending)로 바꾸지 않는다.
-
-- 실행: `python3 -I scripts/wp_draft.py <작업폴더>/draft.json [--post-id <id>]`. `draft.json`의 `content_file`(보통 `wordpress.md`)을 본문으로 넣어 `POST /<채널>/wp-json/wp/v2/posts`(수정은 `/posts/<id>`)로 보내고, `status`가 draft가 아니면 거부한다
-  ```json
-  {"channel":"tech","title":"…","slug":"my-post-slug","status":"draft","author":12345,"featured_media":67890,"categories":[13,263],"content_file":"wordpress.md"}
-  ```
-- 필드 값 정하기
-  - `title`: 블로그 요청 티켓이나 원고의 제목. "2부 : " 같은 띄어쓰기는 "2부: "로 정리하고 사용자에게 알린다
-  - `slug`: 요청 티켓의 Permalink 마지막 경로. 응답의 `target_link`가 게시 URL이다
-  - `author`: `GET /wp/v2/users?search=<별칭>`으로 저자 WP 사용자 ID를 찾는다 (`context=edit`를 붙이면 403, 기본 context는 된다)
-  - `featured_media`: 특성 이미지의 미디어 ID (`images/upload_map.json`)
-  - `categories`: 원고 바이라인("in [Advanced (300)](…/category/learning-levels/advanced-300/), …")의 카테고리 링크 slug로 `GET /wp/v2/categories?slug=<slug>`를 조회해 ID 목록을 만든다. Uncategorized는 넣지 않는다. 학습 레벨이 요청 티켓과 바이라인에서 다르면 사용자에게 알린다
-- **공동 저자는 REST로 넣을 수 없다.** 글 응답에 `authors`(ID 배열)·`contributors` 필드가 보이지만 `authors: [A, B]`를 보내도 `author` 한 명만 남는다. 공동 저자 글은 초안 생성 후 편집 화면에서 추가하도록 안내한다
-- **저자가 WP 계정이 있으면 본문에 저자 소개를 넣지 않는다.** 테마가 WP 사용자 프로필(사진 포함)로 `blog-author-box`를 본문 아래에 자동으로 붙여서, 본문에도 넣으면 두 번 나온다. 고객사 저자처럼 WP 계정이 없는 사람만 본문에 `blog-author-box`로 넣는다
-- 같은 글의 초안이 이미 있는지 먼저 `GET /posts?search=<키워드>&status=draft,pending,publish,future&context=edit`로 확인하고, 다른 사람이 만든 초안은 묻지 않고 덮어쓰지 않는다
-- 저장 후 `GET /posts/<id>?context=edit`의 `content.raw`를 보낸 HTML과 비교한다. `word-break`·`white-space` 제거와 style 공백 정리 외에 차이가 없어야 한다
-- 미리보기 `https://aws-blogs-prod.amazon.com/<채널>/?p=<id>&preview=true`를 브라우저로 열어 확인한다: 이미지는 lazy loading이라 스크롤 후 `naturalWidth`로 로드 여부를 보고, 표 열 너비와 한글 끊김, `blog-author-box` 개수(1개), 카테고리를 확인한다
+- 같은 달에 같은 파일명으로 이미지를 올리면 WP가 `-1`을 붙인다 (`01_architecture-1.png`). 파일명 앞에 글 식별자를 붙이면 헷갈리지 않는다
+- 저자가 WP 계정이 있으면 본문에 저자 소개를 넣지 않는다. 테마가 WP 사용자 프로필(사진 포함)로 저자 소개를 본문 아래에 자동으로 붙여서 두 번 나온다. WP 계정이 없는 저자(고객사 저자 등)만 본문에 넣는다
+- 카테고리는 원고 바이라인의 카테고리(서비스, 학습 레벨, 글 유형)를 기준으로 고르고 Uncategorized는 뺀다. 학습 레벨이 요청서와 바이라인에서 다르면 저자에게 확인한다
+- 공동 저자는 편집 화면에서 직접 추가한다
+- 임시저장 후 미리보기(`?p=<id>&preview=true`)에서 확인한다: 이미지는 lazy loading이라 스크롤해야 로드되고, 표 열 너비와 한글 끊김, 저자 소개 개수(1개), 카테고리를 본다
 
 ## 특성 이미지 만들기
 
@@ -157,7 +130,7 @@ WP 특성 이미지(featured image)는 팀 헤드라인 템플릿(pptx)의 슬�
    pdftoppm -png -scale-to-x 2000 -scale-to-y 1125 -f <N> -l <N> "$C/deck.pdf" headline
    ```
    이미지를 열어 기존 슬라이드와 폰트·배치가 같은지 비교한다. 끝나면 컨테이너의 `headline-export` 폴더를 지운다
-4. **업로드** — `images/00_featured_headline.png`로 두고 `wp_upload_media.py`를 다시 실행한다 (본문에서 참조하지 않으므로 치환 0건이 정상). 미디어 ID를 임시저장 글의 `featured_media`에 넣는다
+4. **업로드** — `images/00_featured_headline.png`로 두고 미디어 라이브러리에 올린 뒤 글의 특성 이미지로 지정한다
 
 ## 내용 리뷰 체크리스트
 
