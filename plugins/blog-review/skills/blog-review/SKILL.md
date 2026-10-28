@@ -12,6 +12,8 @@ description: AWS 테크 블로그 원고(docx/md)를 WordPress HTML로 변환하
 0. **게이트 확인** — 작업 폴더에 `gate-report.md`가 있는지 확인. 없으면 `gate.md`의 6개 기준으로 먼저 채점해 리포트를 만든다 (중복과 군더더기는 이 스킬 폴더의 `scripts/redundancy_metrics.py` 실행). 리포트가 있으면 미달 항목과 "의도적으로 유지" 표시만 확인하고, 통과한 항목(오타·정합성·문체)은 다시 보지 않는다. 리뷰어의 몫은 기술적 정확성과 고객 관점이다
 1. **원고 추출** — docx면 python-docx로 구조 추출 (pandoc 의존 없음, `pip install python-docx`)
 2. **구조 변환 + 이미지 업로드** — 아래 WordPress 구조 체크리스트에 따라 HTML을 `wordpress.md`로 생성한 뒤, 같은 단계에서 `scripts/wp_upload_media.py <작업폴더> --channel tech` 로 `images/`를 WordPress 미디어 라이브러리에 올리고 `wordpress.md`의 이미지 경로를 CDN URL로 바로 치환한다 (아래 "이미지 업로드 자동화" 참고). 중간 파일을 두지 않고 `wordpress.md` 하나가 최종 붙여넣기본이다. 사용자가 수동 업로드를 원할 때만 생략
+2-1. **특성 이미지** — 팀 헤드라인 템플릿(pptx)에 슬라이드를 추가해 PNG로 내보내고 같은 채널에 올린다 (아래 "특성 이미지 만들기" 참고)
+2-2. **임시저장 글** — 제목, slug, 저자, 특성 이미지, 카테고리를 채워 WP 임시저장(draft) 글을 만들고 미리보기를 확인한 뒤 링크를 준다 (아래 "WordPress 임시저장 글 만들기" 참고)
 3. **내용 리뷰** — 유사 주제 테크 블로그 검색·비교, 저자 피드백 작성
 4. **산출물** — 아래 위치 규칙에 따라 저장 + 리뷰 내용을 코멘트 형식으로 정리 (아래 형식 참고)
 5. **게시 후** — 사용자가 publish 완료를 알리면 Slack publish 문구 작성 (아래 워크플로우 참고)
@@ -47,6 +49,7 @@ d = docx.Document(path)
 
 - docx의 bold run은 잘게 쪼개져 나옴 (`**단어****공백**` 연속) — 변환 시 병합·정리
 - 이미지 alt/파일명에 `.mov`가 있으면 원본은 동영상 — 정지 이미지로 변환된 것. 원본 동영상 파일을 별도 요청할 것
+- **협업 문서 도구에서 내보낸 docx는 다단(2열) 블록 안의 이미지가 빠질 수 있다.** 캡션("그림 N.")은 있는데 이미지 자리가 빈 1행 2열 표로 나오면, 원본 문서에서 이미지 파일을 받아 넣는다. 같은 그림 번호로 파일이 여러 개면 나중에 올린 것이 최신이므로 이미지를 열어 캡션과 내용이 맞는지 확인하고 고른다
 
 ## WordPress 구조 체크리스트 (실전 검증됨)
 
@@ -80,6 +83,12 @@ d = docx.Document(path)
   - 표는 **중앙 정렬** + 하단 여백 8px (`margin: 0 auto 8px auto;`) — 테마 기본 table 하단 마진이 커서 캡션과 벌어지는 문제 방지
   - 헤더 행은 `<thead>` + `<th>`로 분리하고 **연회색 배경** `background-color: #f2f3f3;` 적용
   - 열이 적어 좁아 보이는 표는 `width: 70%` 등으로 너비 지정
+  - **WordPress에 저장하면 인라인 스타일의 `word-break`·`white-space`가 사라진다** (`unfiltered_html` 권한이 있어도 지워지고 `width`·`min-width`·`<br>`은 남는다). 그래서 한글 라벨이 "묶/음"처럼 글자 단위로 갈리지 않게 하는 데는 이 둘에 기대지 않는다. 테마 표 셀은 `box-sizing: border-box`, 14px, 좌우 padding 8px라서 `width`에 padding 16px(약 1.2em)가 포함된다. 변환 후 `scripts/table_ko_layout.py wordpress.md`를 실행한다
+    - 첫 열(그리고 모든 셀이 7자 이하인 열)의 `<th>`에 `width`/`min-width`(em)를 넣어 짧은 라벨이 한 줄에 들어가게 한다
+    - 7자를 넘는 라벨은 어절 경계에 `<br>`을 넣어 최대 2줄로 나누고 앞줄을 채운다 ("특화 관리형<br>에이전트"). 괄호 묶음은 "(" 앞에서 끊는다. 결과를 보고 의미 단위가 갈라진 곳은 손으로 고친다
+    - 열이 많은 표(8열 이상)는 숫자 열 머리글도 두 줄로 나누고("요청당<br>처리 시간") `min-width`를 줘야 "150 ms"·"0.49 GB" 같은 값이 줄바꿈되지 않는다
+  - 셀 안의 `<code>`는 `style="word-break: break-all;"`을 붙인다. 긴 식별자 하나가 열 전체를 넓혀 옆 열이 글자 단위로 쪼개지는 것을 막는다
+  - 변환 후 로컬 미리보기로 표를 확인한다: `word-break`·`white-space`를 지운 사본을 `python3 -m http.server`로 띄워 본문 폭 760px에서 열 너비와 한글 끊김을 잰다. 가장 확실한 검증은 실제 초안 미리보기(`/<채널>/?p=<id>&preview=true`)에서 JS로 재는 것
   ```html
   <table style="border-collapse: collapse; border: 1px solid #000; margin: 0 auto 8px auto;">
   <th style="border: 1px solid #000; padding: 8px; background-color: #f2f3f3;">
@@ -88,7 +97,7 @@ d = docx.Document(path)
 - 표/그림 캡션은 표 바로 아래 **가운데 정렬**로 붙임: `<p style="text-align: center; margin-top: 0;"><em>표 N. ...</em></p>`
 
 ### 코드/기타
-- 코드 블록은 `<pre>`, 인라인 코드는 `<code>`
+- 코드 블록은 `<pre><code class="lang-bash">…</code></pre>` 형식으로 언어 클래스를 붙인다 (lang-bash, lang-json, lang-python, lang-javascript, lang-text 등. 테마가 이 클래스로 구문 강조). 인라인 코드는 `<code>`. 본문의 환경 변수, 설정 이름, 오류 이름, CLI 명령도 `<code>`로 감싼다
 - 링크는 문장 안에 인라인으로 (docx 추출 시 위치 어긋남 주의)
 - 리스트는 `<ul><li>`
 
@@ -104,6 +113,51 @@ AWS 블로그 WordPress는 REST API가 열려 있고 Midway 쿠키만으로 쓰�
   - 치환 결과는 `--html` 파일에 바로 쓴다 (기본 `wordpress.md`). 미치환 src가 남으면 출력에 표시
 - 프로덕션 쓰기이므로 실행 전 `--dry-run`으로 대상 목록을 사용자에게 보여주고 확인받는다. 저자 사진 등 본문에 안 쓰는 파일은 `images/` 밖으로 빼 둔다
 - 잘못 올린 파일 삭제: `DELETE .../wp/v2/media/<id>?force=true`
+- 같은 달에 같은 파일명으로 올리면 WP가 `-1`을 붙인다 (`01_architecture-1.png`). 동작에는 문제없지만 파일명 앞에 글 식별자를 붙이면 헷갈리지 않는다
+
+## WordPress 임시저장 글 만들기
+
+이미지와 특성 이미지를 올린 뒤 같은 REST API로 임시저장(draft) 글까지 만든다. 사용자는 미리보기를 확인만 하면 된다. **`status`는 항상 `draft`** — 게시(publish)나 검토 대기(pending)로 바꾸지 않는다.
+
+- 실행: `python3 -I scripts/wp_draft.py <작업폴더>/draft.json [--post-id <id>]`. `draft.json`의 `content_file`(보통 `wordpress.md`)을 본문으로 넣어 `POST /<채널>/wp-json/wp/v2/posts`(수정은 `/posts/<id>`)로 보내고, `status`가 draft가 아니면 거부한다
+  ```json
+  {"channel":"tech","title":"…","slug":"my-post-slug","status":"draft","author":12345,"featured_media":67890,"categories":[13,263],"content_file":"wordpress.md"}
+  ```
+- 필드 값 정하기
+  - `title`: 블로그 요청 티켓이나 원고의 제목. "2부 : " 같은 띄어쓰기는 "2부: "로 정리하고 사용자에게 알린다
+  - `slug`: 요청 티켓의 Permalink 마지막 경로. 응답의 `target_link`가 게시 URL이다
+  - `author`: `GET /wp/v2/users?search=<별칭>`으로 저자 WP 사용자 ID를 찾는다 (`context=edit`를 붙이면 403, 기본 context는 된다)
+  - `featured_media`: 특성 이미지의 미디어 ID (`images/upload_map.json`)
+  - `categories`: 원고 바이라인("in [Advanced (300)](…/category/learning-levels/advanced-300/), …")의 카테고리 링크 slug로 `GET /wp/v2/categories?slug=<slug>`를 조회해 ID 목록을 만든다. Uncategorized는 넣지 않는다. 학습 레벨이 요청 티켓과 바이라인에서 다르면 사용자에게 알린다
+- **공동 저자는 REST로 넣을 수 없다.** 글 응답에 `authors`(ID 배열)·`contributors` 필드가 보이지만 `authors: [A, B]`를 보내도 `author` 한 명만 남는다. 공동 저자 글은 초안 생성 후 편집 화면에서 추가하도록 안내한다
+- **저자가 WP 계정이 있으면 본문에 저자 소개를 넣지 않는다.** 테마가 WP 사용자 프로필(사진 포함)로 `blog-author-box`를 본문 아래에 자동으로 붙여서, 본문에도 넣으면 두 번 나온다. 고객사 저자처럼 WP 계정이 없는 사람만 본문에 `blog-author-box`로 넣는다
+- 같은 글의 초안이 이미 있는지 먼저 `GET /posts?search=<키워드>&status=draft,pending,publish,future&context=edit`로 확인하고, 다른 사람이 만든 초안은 묻지 않고 덮어쓰지 않는다
+- 저장 후 `GET /posts/<id>?context=edit`의 `content.raw`를 보낸 HTML과 비교한다. `word-break`·`white-space` 제거와 style 공백 정리 외에 차이가 없어야 한다
+- 미리보기 `https://aws-blogs-prod.amazon.com/<채널>/?p=<id>&preview=true`를 브라우저로 열어 확인한다: 이미지는 lazy loading이라 스크롤 후 `naturalWidth`로 로드 여부를 보고, 표 열 너비와 한글 끊김, `blog-author-box` 개수(1개), 카테고리를 확인한다
+
+## 특성 이미지 만들기
+
+WP 특성 이미지(featured image)는 팀 헤드라인 템플릿(pptx)의 슬라이드를 PNG로 뽑아 올린다. 템플릿 경로는 사용자에게 확인한다.
+
+1. **슬라이드 추가** — 템플릿을 백업한 뒤 기존 슬라이드 하나를 복제해 맨 끝에 추가하고 제목 `<a:t>`만 바꾼다 (zip 안의 XML 직접 편집). 추가할 때 `ppt/slides/slideN.xml`과 `_rels/slideN.xml.rels`, `[Content_Types].xml`의 Override, `ppt/_rels/presentation.xml.rels`의 새 rId, `ppt/presentation.xml`의 `<p:sldId>`(최댓값+1)를 함께 넣고, 모든 XML이 파싱되는지 확인한 뒤 원본을 교체한다
+2. **줄바꿈** — 렌더링해 보고 단어가 줄 끝에서 갈리면("오/리진") `<a:br>`로 줄을 직접 나눈다
+3. **렌더링** — PowerPoint로 한다. LibreOffice는 템플릿 폰트를 다른 글꼴로 바꿔 기존 이미지와 모양이 달라질 수 있다. macOS PowerPoint는 샌드박스라 컨테이너 경로에 **HFS 경로 문자열**로 PDF를 저장해야 파일이 생긴다 (POSIX file을 그대로 넘기거나 `save as PNG`는 오류 없이 아무 파일도 만들지 않는다)
+   ```bash
+   C=~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/headline-export; mkdir -p "$C"
+   osascript <<EOF
+   set outPath to (POSIX file "$C/deck.pdf") as string
+   tell application "Microsoft PowerPoint"
+     open POSIX file "<템플릿.pptx 절대 경로>"
+     delay 3
+     save active presentation in outPath as save as PDF
+     delay 5
+     close active presentation saving no
+   end tell
+   EOF
+   pdftoppm -png -scale-to-x 2000 -scale-to-y 1125 -f <N> -l <N> "$C/deck.pdf" headline
+   ```
+   이미지를 열어 기존 슬라이드와 폰트·배치가 같은지 비교한다. 끝나면 컨테이너의 `headline-export` 폴더를 지운다
+4. **업로드** — `images/00_featured_headline.png`로 두고 `wp_upload_media.py`를 다시 실행한다 (본문에서 참조하지 않으므로 치환 0건이 정상). 미디어 ID를 임시저장 글의 `featured_media`에 넣는다
 
 ## 내용 리뷰 체크리스트
 
